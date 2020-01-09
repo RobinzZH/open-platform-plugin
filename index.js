@@ -50,7 +50,7 @@ module.exports = (event, config) => {
         ajax: context.captureRequests
       }),
 
-      key: "522856232",
+      key: "demo",
       mod_act: "",
       ua: req.headers["user-agent"],
       userip: context.clientIp,
