@@ -2,6 +2,7 @@ const axios = require("axios");
 const { signature } = require("./sig");
 const URL = require("url");
 const { encode } = require("./encrypt");
+const moment = require('moment')
 
 const apiDomain = "openapi.tswjs.org";
 const url = `https://${apiDomain}/v1/log/report`;
@@ -38,13 +39,18 @@ module.exports = (event, config) => {
     context.currentRequest.resultCode = context.currentRequest.statusCode;
     context.currentRequest.url = context.currentRequest.path;
 
+    const timestamp = moment(new Date()).format("YYYY-MM-DD HH:mm:ss.SSS");
+    let loggerText = [`${timestamp} [INFO] [${process.pid} 0] [@tswjs] ${req.method} ${req.protocol}://${req.host}${req.path}`]
+
+    loggerText = loggerText.concat(context.log.arr).concat(`\r\nresponse ${context.currentRequest.resultCode} {}\r\n${res._header}`)
+
     const data = {
       type: "alpha",
       appid: config.appid,
       appkey: config.appkey,
       now: Date.now(),
   
-      logText: encode(config.appid, config.appkey, context.log.arr.join("\r\n")),
+      logText: encode(config.appid, config.appkey, loggerText.join("\r\n")),
       logJson: encode(config.appid, config.appkey, {
         curr: context.currentRequest,
         ajax: context.captureRequests
