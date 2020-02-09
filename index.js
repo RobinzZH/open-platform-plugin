@@ -39,7 +39,7 @@ module.exports = (event, config) => {
     context.currentRequest.resultCode = context.currentRequest.statusCode;
     context.currentRequest.url = context.currentRequest.path;
 
-    const timestamp = moment(new Date()).format("YYYY-MM-DD HH:mm:ss.SSS");
+    const timestamp = moment().format("YYYY-MM-DD HH:mm:ss.SSS");
     let loggerText = [`${timestamp} [INFO] [${process.pid} 0] [@tswjs] ${req.method} ${req.protocol}://${req.host}${req.path}`]
 
     loggerText = loggerText.concat(context.log.arr).concat(`\r\nresponse ${context.currentRequest.resultCode} {}\r\n${res._header}`)
