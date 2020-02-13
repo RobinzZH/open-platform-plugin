@@ -28,21 +28,33 @@ module.exports = (event, config) => {
 
   event.on("RESPONSE_FINISH", (payload) => {
     const { req, res, context } = payload;
+    const { captureRequests, currentRequest } = context;
 
-    context.captureRequests.map(item => {
+    captureRequests.map(item => {
       // 适配一下，SN 需要以 1 开头，否则会丢失序号为 0 的抓包
       item.SN += 1;
       item.resultCode = item.statusCode;
       item.url = item.path;
     });
 
-    context.currentRequest.resultCode = context.currentRequest.statusCode;
-    context.currentRequest.url = context.currentRequest.path;
+    currentRequest.resultCode = currentRequest.statusCode;
+    currentRequest.url = currentRequest.path;
 
-    const timestamp = moment().format("YYYY-MM-DD HH:mm:ss.SSS");
-    let loggerText = [`${timestamp} [INFO] [${process.pid} 0] [@tswjs] ${req.method} ${req.protocol}://${req.host}${req.path}`]
+    const responseHeaders = (() => {
+      const headers = {};
+      res.getHeaderNames().forEach(name => {
+        headers[name] = res.getHeader(name);
+      })
+      return headers;
+    })();
 
-    loggerText = loggerText.concat(context.log.arr).concat(`\r\nresponse ${context.currentRequest.resultCode} {}\r\n${res._header}`)
+    const loggerText = [`${moment().format("YYYY-MM-DD HH:mm:ss.SSS")} ${req.method} ${
+      currentRequest.protocol.toLowerCase()
+    }://${currentRequest.host}${currentRequest.path}`]
+      .concat(context.log.arr)
+      .concat(`\r\nresponse ${currentRequest.resultCode} ${
+        JSON.stringify(responseHeaders, null, 4)
+      }`);
 
     const data = {
       type: "alpha",
@@ -52,8 +64,8 @@ module.exports = (event, config) => {
   
       logText: encode(config.appid, config.appkey, loggerText.join("\r\n")),
       logJson: encode(config.appid, config.appkey, {
-        curr: context.currentRequest,
-        ajax: context.captureRequests
+        curr: currentRequest,
+        ajax: captureRequests
       }),
 
       key: "demo",
