@@ -5,7 +5,7 @@ const { encode } = require("./encrypt");
 const moment = require('moment')
 
 const apiDomain = "openapi.tswjs.org";
-const url = `https://${apiDomain}/v1/log/report`;
+const url = `http://${apiDomain}/v1/log/report`;
 
 const handleProxy = () => {
   if ((process.env.no_proxy || "").includes(apiDomain)
