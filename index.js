@@ -26,7 +26,7 @@ const handleProxy = () => {
 module.exports = (event, config) => {
   handleProxy();
 
-  event.on("RESPONSE_CLOSE", (payload) => {
+  event.on("RESPONSE_FINISH", (payload) => {
     const { req, res, context } = payload;
 
     context.captureRequests.map(item => {
