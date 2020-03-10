@@ -54,9 +54,9 @@ global.eventBus.on("RESPONSE_FINISH", (payload) => {
   return console.log("Current user not in reportList");
 })
 
-class openPlatformPlugin {
+class OpenPlatformPlugin {
   constructor(config) {
-    this.name = 'openPlatformPlugin';
+    this.name = 'OpenPlatformPlugin';
     this.config = Object.assign({
       appid: "",
       appkey: "",
@@ -275,4 +275,4 @@ class openPlatformPlugin {
 
 let instance;
 
-module.exports =  openPlatformPlugin;
+module.exports = OpenPlatformPlugin;
