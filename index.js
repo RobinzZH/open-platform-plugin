@@ -27,77 +27,65 @@ const handleProxy = () => {
 
 handleProxy();
 
-global.eventBus.on("REQUEST_START", (payload) => {
-  const { req, context } = payload;
-  const proxyInfo = instance.config.proxyInfo;
-
-  context.uid = instance.config.getUid(req);
-
-  for( let proxyIp of Object.keys(proxyInfo) ){
-    if(proxyInfo[proxyIp].alphaList.indexOf(context.uid) !== -1){
-      context.proxyIp = proxyIp;
-      context.proxyPort = proxyInfo[proxyIp].port || "80";
-      break;
-    }
-  }
-})
-
-global.eventBus.on("RESPONSE_FINISH", (payload) => {
-  const { req, res, context } = payload;
-
-  if(context.uid === "") return console.log("Not set uid");
-  if(instance.config.reportList === false) return console.log("Not open report");
-  if(instance.config.reportList === true ||
-    (instance.config.reportList instanceof Array && instance.config.reportList.indexOf(context.uid) !== -1)) 
-    return instance.reportLog(req, res, context);
-
-  return console.log("Current user not in reportList");
-})
-
 class OpenPlatformPlugin {
   constructor(config) {
-    this.name = 'OpenPlatformPlugin';
-    this.config = Object.assign({
-      appid: "",
-      appkey: "",
-      proxyInfo: {},
-      reportList: false,
-      getUid: async () => {},
-      getProxyInfo: async () => {},
-      getReportList: async () => {},
-    }, config);
-    instance = this;
+    this.name = "OpenPlatformPlugin";
+    this.appid = config.appid;
+    this.appkey = config.appkey;
+    this.reportList = false;
+    this.proxyInfo = {};
 
-    const promiseOrResult4Report = this.config.getReportList();
-    if (promiseOrResult4Report instanceof Promise) {
-      promiseOrResult4Report.then(d => {
-        this.config.reportList = d;
-      }).catch(e => {
-        console.error(e);
-      });
-    } else {
-      this.config.reportList = promiseOrResult4Report;
-    }
+    this.getUid = config.getUid || (() => {});
+    this.getProxyInfo = config.getProxyInfo || (() => {});
+    this.getReportList = config.getReportList || (() => {});
+  }
 
-    const promiseOrResult4Proxy = this.config.getProxyInfo();
-    if (promiseOrResult4Proxy instanceof Promise) {
-      promiseOrResult4Proxy.then(d => {
-        this.updateProxyEnvByFn(d);
-      }).catch(e => {
-        console.error(e);
-      });
-    } else {
-      this.updateProxyEnvByFn(promiseOrResult4Proxy);
-    }
+  /**
+   * 插件初始化
+   */
+  async init(eventBus, config) {
+    eventBus.on("REQUEST_START", (payload) => {
+      const { req, context } = payload;
+      const proxyInfo = this.proxyInfo;
+    
+      context.uid = this.getUid(req);
+    
+      for( let proxyIp of Object.keys(proxyInfo) ){
+        if(proxyInfo[proxyIp].alphaList.indexOf(context.uid) !== -1){
+          context.proxyIp = proxyIp;
+          context.proxyPort = proxyInfo[proxyIp].port || "80";
+          break;
+        }
+      }
+    })
+    
+    eventBus.on("RESPONSE_FINISH", (payload) => {
+      const { req, res, context } = payload;
+    
+      if(context.uid === "") return console.log("Not set uid");
+      if(this.reportList === false) return console.log("Not open report");
+      if(this.reportList === true ||
+        (this.reportList instanceof Array && this.reportList.indexOf(context.uid) !== -1)) 
+        return this.reportLog(req, res, context);
+    
+      return console.log("Current user not in reportList");
+    })
+
+    this.reportList = await this.getReportList();
+    this.updateProxyEnvByFn(await this.getProxyInfo());
 
     // 周期性更新代理名单
     setInterval(()=>{
       this.updateProxyEnvByCloud();
     }, 60000);
   }
-  reportProxyEnv = () => {
+
+  /**
+   * 上报代理环境
+   */
+  reportProxyEnv() {
     console.log('reportProxyEnv')
-    const proxyInfos = this.config.proxyInfo;
+    const proxyInfos = this.proxyInfo;
     if(!proxyInfos) return console.log('Not set proxy env');
   
     const intranetIp = ip.address();
@@ -118,8 +106,8 @@ class OpenPlatformPlugin {
     }, proxyInfo);
     const data = {
       type: 'alpha',
-      logText: encode(this.config.appid, this.config.appkey, logText),
-      logJson: encode(this.config.appid, this.config.appkey, logJson),
+      logText: encode(this.appid, this.appkey, logText),
+      logJson: encode(this.appid, this.appkey, logJson),
       key: 'h5test',
       group: 'tsw',
       mod_act: 'h5test',
@@ -128,8 +116,8 @@ class OpenPlatformPlugin {
       host: '',
       pathname: '',
       statusCode: '',
-      appid: this.config.appid,
-      appkey: this.config.appkey,
+      appid: this.appid,
+      appkey: this.appkey,
       now: Date.now(),
     }
   
@@ -137,7 +125,7 @@ class OpenPlatformPlugin {
       pathname: URL.parse(url).pathname,
       method: 'POST',
       data,
-      appkey: this.config.appkey
+      appkey: this.appkey
     });
   
     axios.post(url, data, {
@@ -149,17 +137,17 @@ class OpenPlatformPlugin {
     })
   }
 
-  updateProxyEnvByCloud = () => {
+  updateProxyEnvByCloud() {
     console.log('updateProxyEnvByCloud')
     const data = {
-      appid: this.config.appid,
+      appid: this.appid,
       now: Date.now()
     };
     data.sig = signature({
       pathname: URL.parse(h5testSyncUrl).pathname,
       method: 'POST',
       data,
-      appkey: this.config.appkey
+      appkey: this.appkey
     });
 
     axios.post(h5testSyncUrl, data, {
@@ -168,7 +156,7 @@ class OpenPlatformPlugin {
       console.log(d.data);
       let remoteProxyInfo = d.data.data;
       if(JSON.stringify(remoteProxyInfo) === "{}") return;
-      const proxyInfo = this.config.proxyInfo;
+      const proxyInfo = this.proxyInfo;
       for(let uid of Object.keys(remoteProxyInfo)){
         const ip = remoteProxyInfo[uid].split(":")[0];
         if(!proxyInfo[ip]){
@@ -184,10 +172,10 @@ class OpenPlatformPlugin {
     })
   }
 
-  updateProxyEnvByFn = (extendProxyInfo) => {
+  updateProxyEnvByFn(extendProxyInfo) {
     console.log('updateProxyEnvByFn');
     if(JSON.stringify(extendProxyInfo) === "{}") return;
-    const proxyInfo = this.config.proxyInfo;
+    const proxyInfo = this.proxyInfo;
 
     for(let ip of Object.keys(extendProxyInfo)){
       if(proxyInfo[ip] && proxyInfo[ip].alphaList){
@@ -235,12 +223,12 @@ class OpenPlatformPlugin {
   
     const data = {
       type: "alpha",
-      appid: this.config.appid,
-      appkey: this.config.appkey,
+      appid: this.appid,
+      appkey: this.appkey,
       now: Date.now(),
   
-      logText: encode(this.config.appid, this.config.appkey, loggerText.join("\r\n")),
-      logJson: encode(this.config.appid, this.config.appkey, {
+      logText: encode(this.appid, this.appkey, loggerText.join("\r\n")),
+      logJson: encode(this.appid, this.appkey, {
         curr: currentRequest,
         ajax: captureRequests
       }),
@@ -260,7 +248,7 @@ class OpenPlatformPlugin {
       pathname: URL.parse(url).pathname,
       method: 'POST',
       data,
-      appkey: this.config.appkey
+      appkey: this.appkey
     });
   
     axios.post(url, data, {
@@ -272,7 +260,5 @@ class OpenPlatformPlugin {
     })
   }
 }
-
-let instance;
 
 module.exports = OpenPlatformPlugin;
