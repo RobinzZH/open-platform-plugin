@@ -32,15 +32,15 @@ class OpenPlatformPlugin {
     this.name = "OpenPlatformPlugin";
     this.appid = config.appid;
     this.appkey = config.appkey;
-    this.reportList = false;
+    this.reportStrategy = config.reportStrategy;
+    this.reportStrategies = ["never", "always", "proxied"];
     this.proxyInfo = {};
+    this.intranetIp = ip.address();
 
     // 默认给一个返回 undefined 的同步函数
     this.getUid = config.getUid || (() => {});
-    // 默认给一个返回 {} 的同步函数
-    this.getProxyInfo = config.getProxyInfo || (() => ({}));
-    // 默认给一个返回 false 的同步函数
-    this.getReportList = config.getReportList || (() => false);
+    // 默认给一个返回 undefined 的同步函数re
+    this.getProxyInfo = config.getProxyInfo || (() => {});
   }
 
   /**
@@ -49,15 +49,15 @@ class OpenPlatformPlugin {
   async init(eventBus, config) {
     this.log("插件开始加载...");
 
-    this.log("获取 reportList 中...");
-    this.reportList = await this.getReportList();
     this.log("获取 proxyInfo 中...");
-    this.proxyInfo = await this.getProxyInfo();
+    const info = await this.getProxyInfo();
+    if (info) {
+      this.proxyInfo[this.intranetIp] = info;
+    }
 
     this.log("断言参数类型是否符合预期...");
     this.assertParams();
 
-    this.extendProxyInfo(this.proxyInfo);
     this.log("上传 proxyInfo 中...");
     await this.reportProxyEnv();
 
@@ -83,26 +83,22 @@ class OpenPlatformPlugin {
      */
     eventBus.on("RESPONSE_FINISH", (payload) => {
       const { req, res, context } = payload;
-    
-      if (!context.uid) {
-        this.log(`请求结束日志不上报，因为 uid 为空或者 undefined`);
-        return;
-      }
 
-      if (this.reportList === false) {
-        this.log(`请求结束日志不上报，因为 reportList 为 false`);
-        return;
-      }
-
-      if (this.reportList === true) {
-        this.log(`请求结束日志上报，因为 reportList 为 true`);
-        return this.reportLog(req, res, context);
-      }
-
-      if (Array.isArray(this.reportList)
-        && this.reportList.indexOf(context.uid) !== -1) {
-        this.log(`请求结束日志上报，因为用户 ${context.uid} 在 reportList 中`);
-        return this.reportLog(req, res, context);
+      switch (this.reportStrategy) {
+        case "always":
+          this.log(`请求结束日志上报，因为 reportStrategy 为 always`);
+          return this.reportLog(req, res, context);
+        case "never":
+          this.log(`请求结束日志不上报，因为 reportStrategy 为 never`);
+          return;
+        case "proxied":
+          if (context.proxyIp) {
+            this.log(`请求结束日志上报，因为这个请求被代理到 ${context.proxyIp}`);
+            return this.reportLog(req, res, context);
+          } else {
+            this.log(`请求结束日志不上报，因为这个请求没有被代理过`);
+            return;
+          }
       }
     })
 
@@ -126,9 +122,8 @@ class OpenPlatformPlugin {
       throw new Error(`参数 appkey 不能为空`)
     }
 
-    if (typeof this.reportList !== "boolean"
-      && !Array.isArray(this.reportList)) {
-      throw new Error(`参数 getReportList 函数必须返回布尔值或者字符串数组`)
+    if (this.reportStrategies.indexOf(this.reportStrategy) === -1) {
+      throw new Error(`参数 reportStrategy 函数必须是为 ${this.reportStrategies} 其中一个`);
     }
 
     // TODO: 这里应该使用 joi 来进行更加详细的断言
@@ -141,14 +136,13 @@ class OpenPlatformPlugin {
    * 上报代理环境
    */
   async reportProxyEnv() {
-    const intranetIp = ip.address();
-    const proxyInfo = this.proxyInfo[intranetIp];
+    const proxyInfo = this.proxyInfo[this.intranetIp];
   
     if (!proxyInfo) return this.log(`不允许通过代理访问本机器，不上报开放平台`);
   
-    const logText = `${intranetIp}:${proxyInfo.port ? proxyInfo.port : '80'}`;
+    const logText = `${this.intranetIp}:${proxyInfo.port ? proxyInfo.port : '80'}`;
     let logJson = Object.assign({
-      ip: intranetIp,
+      ip: this.intranetIp,
       port: proxyInfo.port || 80,
       time: new Date().toGMTString(),
       name: '',
