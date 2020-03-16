@@ -5,10 +5,6 @@ const { signature } = require("./sig");
 const { encode } = require("./encrypt");
 const ip = require("ip");
 
-const apiDomain = "openapi.tswjs.org";
-const url = `https://${apiDomain}/v1/log/report`;
-const h5testSyncUrl = `https://${apiDomain}/v1/h5test/sync`;
-
 const handleProxy = () => {
   if ((process.env.no_proxy || "").includes(apiDomain)
   || (process.env.NO_PROXY || "").includes(apiDomain)) {
@@ -28,6 +24,15 @@ const handleProxy = () => {
 handleProxy();
 
 class OpenPlatformPlugin {
+  /**
+   * @param {Object} config 配置对象
+   * @param {String} config.appid 应用 id
+   * @param {String} config.appkey 应用 key
+   * @param {"never" | "always" | "proxied"} config.reportStrategy 上报策略
+   * @param {Function} config.getUid 获取用户唯一标识
+   * @param {Function} config.getProxyInfo 获取本机代理环境信息
+   * @param {Boolean} httpDomain 是否使用 http 上报域名
+   */
   constructor(config) {
     this.name = "OpenPlatformPlugin";
     this.appid = config.appid;
@@ -36,6 +41,9 @@ class OpenPlatformPlugin {
     this.reportStrategies = ["never", "always", "proxied"];
     this.proxyInfo = {};
     this.intranetIp = ip.address();
+    this.apiDomain = `${config.httpDomain ? "http" : "https"}://openapi.tswjs.org`;
+    this.logReportUrl = `${this.apiDomain}/v1/log/report`;
+    this.h5testSyncUrl = `${this.apiDomain}/v1/h5test/sync`;
 
     // 默认给一个返回 undefined 的同步函数
     this.getUid = config.getUid || (() => {});
@@ -169,13 +177,13 @@ class OpenPlatformPlugin {
     }
   
     data.sig = signature({
-      pathname: URL.parse(url).pathname,
+      pathname: URL.parse(this.logReportUrl).pathname,
       method: 'POST',
       data,
       appkey: this.appkey
     });
   
-    await axios.post(url, data, {
+    await axios.post(this.logReportUrl, data, {
       responseType: "json"
     }).then(d => {
       if (d.data.code !== 0) throw new Error(d.data.message);
@@ -194,13 +202,13 @@ class OpenPlatformPlugin {
     };
 
     data.sig = signature({
-      pathname: URL.parse(h5testSyncUrl).pathname,
+      pathname: URL.parse(this.h5testSyncUrl).pathname,
       method: 'POST',
       data,
       appkey: this.appkey
     });
 
-    await axios.post(h5testSyncUrl, data, {
+    await axios.post(this.h5testSyncUrl, data, {
       responseType: "json"
     }).then(d => {
       if (d.data.code !== 0) throw new Error(d.data.message);
@@ -290,13 +298,13 @@ class OpenPlatformPlugin {
     }
   
     data.sig = signature({
-      pathname: URL.parse(url).pathname,
+      pathname: URL.parse(this.logReportUrl).pathname,
       method: 'POST',
       data,
       appkey: this.appkey
     });
   
-    await axios.post(url, data, {
+    await axios.post(this.logReportUrl, data, {
       responseType: "json"
     }).then(d => {
       if (d.data.code !== 0) throw new Error(d.data.message);
