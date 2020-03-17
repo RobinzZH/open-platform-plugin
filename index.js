@@ -5,24 +5,6 @@ const { signature } = require("./sig");
 const { encode } = require("./encrypt");
 const ip = require("ip");
 
-const handleProxy = () => {
-  if ((process.env.no_proxy || "").includes(apiDomain)
-  || (process.env.NO_PROXY || "").includes(apiDomain)) {
-    return;
-  }
-
-  if ((process.env.http_proxy || "").includes("127.0.0.1:12759")
-  || (process.env.HTTP_PROXY || "").includes("127.0.0.1:12759")
-  || (process.env.http_proxy || "").includes("127.0.0.1:12639")
-  || (process.env.HTTP_PROXY || "").includes("127.0.0.1:12639")) {
-    process.env.no_proxy = process.env.no_proxy 
-      ? `${process.env.no_proxy},${apiDomain}`
-      : apiDomain;
-  }
-}
-
-handleProxy();
-
 class OpenPlatformPlugin {
   /**
    * @param {Object} config 配置对象
