@@ -1,4 +1,5 @@
 const axios = require("axios");
+const OpenApiCls = require('./openapi');
 const URL = require("url");
 const moment = require('moment');
 const { signature } = require("./sig");
@@ -25,7 +26,11 @@ class OpenPlatformPlugin {
     this.intranetIp = ip.address();
     this.apiDomain = `${config.httpDomain ? "http" : "https"}://openapi.tswjs.org`;
     this.logReportUrl = `${this.apiDomain}/v1/log/report`;
-    this.h5testSyncUrl = `${this.apiDomain}/v1/h5test/sync`;
+    this.openApi = new OpenApiCls({
+      appid: this.appid,
+      appid: this.appkey,
+      apiDomain: this.apiDomain
+    })
 
     // 默认给一个返回 undefined 的同步函数
     this.getUid = config.getUid || (() => {});
@@ -178,24 +183,9 @@ class OpenPlatformPlugin {
    * 从开放平台同步代理名单
    */
   async updateProxyEnvByCloud() {
-    const data = {
-      appid: this.appid,
-      now: Date.now()
-    };
 
-    data.sig = signature({
-      pathname: URL.parse(this.h5testSyncUrl).pathname,
-      method: 'POST',
-      data,
-      appkey: this.appkey
-    });
+    await this.openapi.updateProxyEnvByCloud().then(remoteProxyInfo => {
 
-    await axios.post(this.h5testSyncUrl, data, {
-      responseType: "json"
-    }).then(d => {
-      if (d.data.code !== 0) throw new Error(d.data.message);
-
-      const remoteProxyInfo = d.data.data;
       for(const uid of Object.keys(remoteProxyInfo)){
         const [ip] = remoteProxyInfo[uid].split(":");
 
