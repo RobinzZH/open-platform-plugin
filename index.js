@@ -1,4 +1,4 @@
-const { OpenApi } = require('./openapi');
+const { OpenApi } = require('@tswjs/open-platform-api');
 const moment = require('moment');
 const ip = require("ip");
 
