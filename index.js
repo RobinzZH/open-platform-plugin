@@ -184,7 +184,7 @@ class OpenPlatformPlugin {
    */
   async updateProxyEnvByCloud() {
 
-    await this.openapi.updateProxyEnvByCloud().then(remoteProxyInfo => {
+    await this.openApi.updateProxyEnvByCloud().then(remoteProxyInfo => {
 
       for(const uid of Object.keys(remoteProxyInfo)){
         const [ip] = remoteProxyInfo[uid].split(":");
