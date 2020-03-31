@@ -1,9 +1,5 @@
-const axios = require("axios");
-const OpenApiCls = require('./openapi');
-const URL = require("url");
+const { OpenApi } = require('./openapi');
 const moment = require('moment');
-const { signature } = require("./sig");
-const { encode } = require("./encrypt");
 const ip = require("ip");
 
 class OpenPlatformPlugin {
@@ -18,18 +14,15 @@ class OpenPlatformPlugin {
    */
   constructor(config) {
     this.name = "OpenPlatformPlugin";
-    this.appid = config.appid;
-    this.appkey = config.appkey;
     this.reportStrategy = config.reportStrategy;
     this.reportStrategies = ["never", "always", "proxied"];
     this.proxyInfo = {};
     this.intranetIp = ip.address();
-    this.apiDomain = `${config.httpDomain ? "http" : "https"}://openapi.tswjs.org`;
-    this.logReportUrl = `${this.apiDomain}/v1/log/report`;
-    this.openApi = new OpenApiCls({
-      appid: this.appid,
-      appid: this.appkey,
-      apiDomain: this.apiDomain
+
+    this.openApi = new OpenApi({
+      appid: config.appid,
+      appkey: config.appkey,
+      httpDomain: config.httpDomain
     })
 
     // 默认给一个返回 undefined 的同步函数
@@ -109,14 +102,6 @@ class OpenPlatformPlugin {
   }
 
   assertParams() {
-    if (!this.appid) {
-      throw new Error(`参数 appid 不能为空`);
-    }
-
-    if (!this.appkey) {
-      throw new Error(`参数 appkey 不能为空`)
-    }
-
     if (this.reportStrategies.indexOf(this.reportStrategy) === -1) {
       throw new Error(`参数 reportStrategy 函数必须是为 ${this.reportStrategies} 其中一个`);
     }
@@ -146,37 +131,13 @@ class OpenPlatformPlugin {
       order: 0,
       owner: '',
     }, proxyInfo);
-    const data = {
-      type: 'alpha',
-      logText: encode(this.appid, this.appkey, logText),
-      logJson: encode(this.appid, this.appkey, logJson),
-      key: 'h5test',
-      group: 'tsw',
-      mod_act: 'h5test',
-      ua: '',
-      userip: '',
-      host: '',
-      pathname: '',
-      statusCode: '',
-      appid: this.appid,
-      appkey: this.appkey,
-      now: Date.now(),
-    }
-  
-    data.sig = signature({
-      pathname: URL.parse(this.logReportUrl).pathname,
-      method: 'POST',
-      data,
-      appkey: this.appkey
-    });
-  
-    await axios.post(this.logReportUrl, data, {
-      responseType: "json"
-    }).then(d => {
-      if (d.data.code !== 0) throw new Error(d.data.message);
-    }).catch(e => {
+
+    return this.openApi.reportProxyEnv({ 
+      logText, 
+      logJson 
+    }).catch((e) => {
       this.log(`上报代理环境失败: ${e.message}`);
-    })
+    });
   }
 
   /**
@@ -238,7 +199,7 @@ class OpenPlatformPlugin {
       return headers;
     })();
   
-    const loggerText = [`${moment().format("YYYY-MM-DD HH:mm:ss.SSS")} ${req.method} ${
+    const logText = [`${moment().format("YYYY-MM-DD HH:mm:ss.SSS")} ${req.method} ${
       currentRequest.protocol.toLowerCase()
     }://${currentRequest.host}${currentRequest.path}`]
       .concat(context.log.arr)
@@ -246,45 +207,21 @@ class OpenPlatformPlugin {
         JSON.stringify(responseHeaders, null, 4)
       }`);
   
-    const data = {
-      type: "alpha",
-      appid: this.appid,
-      appkey: this.appkey,
-      now: Date.now(),
-  
-      logText: encode(this.appid, this.appkey, loggerText.join("\r\n")),
-      logJson: encode(this.appid, this.appkey, {
+    return this.openApi.reportLog({
+      logText: logText.join("\r\n"),
+      logJson: {
         curr: currentRequest,
         ajax: captureRequests
-      }),
-  
+      },
       key: context.uid,
-      mod_act: "",
       ua: req.headers["user-agent"],
       userip: context.clientIp,
       host: context.host,
       pathname: req.url,
-      ext_info: '',
       statusCode: context.resultCode,
-      group: ""
-    }
-  
-    data.sig = signature({
-      pathname: URL.parse(this.logReportUrl).pathname,
-      method: 'POST',
-      data,
-      appkey: this.appkey
-    });
-  
-    await axios.post(this.logReportUrl, data, {
-      responseType: "json"
-    }).then(d => {
-      if (d.data.code !== 0) throw new Error(d.data.message);
-
-      this.log(`上报日志成功`);
     }).catch(e => {
       this.log(`上报日志失败: ${e.message}`);
-    })
+    });
   }
 
   log(string) {

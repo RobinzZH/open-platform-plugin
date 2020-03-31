@@ -1,24 +1,36 @@
 const axios = require("axios");
 const URL = require("url");
 const { signature } = require("./sig");
+const { encode } = require("./encrypt");
 
 /**
  * tswjs开放平台openapi接口封装
  */
-module.exports = class OpenApi {
+class OpenApi {
   /**
    * 调用openapi依赖的参数
-   * @param {*} opt 参数对象
-   * @param {string} opt.appid 应用 id
-   * @param {string} opt.appkey 应用 key
-   * @param {string} opt.apiDomain 开放平台域名
+   * @param {*} options 参数对象
+   * @param {string} options.appid 应用 id
+   * @param {string} options.appkey 应用 key
+   * @param {string} options.httpDomain 是否使用 http 上报域名
    */
-  constructor(opt = {}) {
-    this.appid = opt.appid
-    this.appkey = opt.appkey;
-    this.h5testSyncUrl = `${opt.apiDomain}/v1/h5test/sync`;
-    this.h5testListUrl = `${opt.apiDomain}/openapi/h5test/list`;
-    this.h5testSetUrl = `${opt.apiDomain}/openapi/h5test/set`;
+  constructor(options = {}) {
+    this.appid = options.appid
+    this.appkey = options.appkey;
+    this.apiDomain = `${options.httpDomain ? "http" : "https"}://openapi.tswjs.org`;
+
+    this.logReportUrl = `${this.apiDomain}/v1/log/report`;
+    this.h5testSyncUrl = `${this.apiDomain}/v1/h5test/sync`;
+    this.h5testListUrl = `${this.apiDomain}/openapi/h5test/list`;
+    this.h5testSetUrl = `${this.apiDomain}/openapi/h5test/set`;
+
+    if (!this.appid) {
+      throw new Error(`参数 appid 不能为空`);
+    }
+
+    if (!this.appkey) {
+      throw new Error(`参数 appkey 不能为空`)
+    }
   }
   /**
    * 从开放平台同步代理名单
@@ -146,4 +158,98 @@ module.exports = class OpenApi {
         throw new Error(`删除测试号码失败: ${e.message}`);
       });
   }
+
+  /**
+   * 上报代理环境
+   * @param {*} info 
+   */
+  async reportProxyEnv(info) {
+    const { logText, logJson } = info;
+
+    if (!logText) {
+      throw new Error("logText 参数不可以为空");
+    }
+
+    if (!logJson) {
+      throw new Error("logJson 参数不可以为空");
+    }
+
+    const data = {
+      type: 'alpha',
+      logText: encode(this.appid, this.appkey, logText),
+      logJson: encode(this.appid, this.appkey, logJson),
+      key: 'h5test',
+      group: 'tsw',
+      mod_act: 'h5test',
+      ua: '',
+      userip: '',
+      host: '',
+      pathname: '',
+      statusCode: '',
+      appid: this.appid,
+      appkey: this.appkey,
+      now: Date.now(),
+    };
+
+    data.sig = signature({
+      pathname: URL.parse(this.logReportUrl).pathname,
+      method: 'POST',
+      data,
+      appkey: this.appkey
+    });
+  
+    return axios.post(this.logReportUrl, data, {
+      responseType: "json"
+    }).then(d => {
+      if (d.data.code !== 0) throw new Error(d.data.message);
+    }).catch(e => {
+      throw e;
+    });
+  }
+
+  /**
+   * 上报日志
+   */
+  async reportLog(info) {
+    const { logText, logJson, key, ua, userip, host, pathname, statusCode} = info;
+
+    const data = {
+      type: "alpha",
+      appid: this.appid,
+      appkey: this.appkey,
+      now: Date.now(),
+  
+      logText: encode(this.appid, this.appkey, logText),
+      logJson: encode(this.appid, this.appkey, logJson),
+  
+      key,
+      mod_act: "",
+      ua,
+      userip,
+      host,
+      pathname,
+      ext_info: '',
+      statusCode,
+      group: ""
+    };
+
+    data.sig = signature({
+      pathname: URL.parse(this.logReportUrl).pathname,
+      method: 'POST',
+      data,
+      appkey: this.appkey
+    });
+  
+    return axios.post(this.logReportUrl, data, {
+      responseType: "json"
+    }).then(d => {
+      if (d.data.code !== 0) throw new Error(d.data.message);
+    }).catch(e => {
+      this.log(`上报日志失败: ${e.message}`);
+    })
+  }
+}
+
+module.exports = {
+  OpenApi
 }
