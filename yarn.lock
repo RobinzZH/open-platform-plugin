@@ -2,10 +2,10 @@
 # yarn lockfile v1
 
 
-"@tswjs/open-platform-api@^1.0.0":
-  version "1.0.0"
-  resolved "https://registry.yarnpkg.com/@tswjs/open-platform-api/-/open-platform-api-1.0.0.tgz#58021d196521bc57fd6129f7a8e804d910f28568"
-  integrity sha512-a5ojTtZN+tKSrDMVArJoQqCINWgEWT2EsEGEeKw2MGNxjGZS239gXxJU724DghuTL/QKHWJi8JMsAkSsb9DeJQ==
+"@tswjs/open-platform-api@^1.0.2":
+  version "1.0.2"
+  resolved "https://registry.yarnpkg.com/@tswjs/open-platform-api/-/open-platform-api-1.0.2.tgz#d3685b925a7a400413cdbb0488c42cb6b00c036d"
+  integrity sha512-VVFkw0xAI1e3gf/SbIz1++wxyHguXXlHuXvuShPCmZQ8YCWpxMVoREKoXxz/5ag65TEHUutDnEyPhgJjG/jAqA==
   dependencies:
     axios "^0.19.2"
 
