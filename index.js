@@ -1,6 +1,7 @@
 const { OpenApi } = require('@tswjs/open-platform-api');
 const moment = require('moment');
 const ip = require("ip");
+const net = require("net");
 
 class OpenPlatformPlugin {
   /**
@@ -85,7 +86,7 @@ class OpenPlatformPlugin {
           this.log(`请求结束日志不上报，因为 reportStrategy 为 never`);
           return;
         case "proxied":
-          if (context.proxyIp) {
+          if (net.isIP(context.proxyIp)) {
             this.log(`请求结束日志上报，因为这个请求被代理到 ${context.proxyIp}`);
             return this.reportLog(req, res, context);
           } else {
