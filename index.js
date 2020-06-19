@@ -64,7 +64,8 @@ class OpenPlatformPlugin {
       context.uid = this.getUid(req);
     
       for (const proxyIp of Object.keys(this.proxyInfo)) {
-        if (this.proxyInfo[proxyIp].alphaList.indexOf(context.uid) !== -1) {
+        if ((this.proxyInfo[proxyIp].alphaList && this.proxyInfo[proxyIp].alphaList.includes(context.uid))
+            || (this.proxyInfo[proxyIp].remoteAlphaList && this.proxyInfo[proxyIp].remoteAlphaList.includes(context.uid))) {
           context.proxyIp = proxyIp;
           context.proxyPort = this.proxyInfo[proxyIp].port || "80";
           break;
@@ -152,34 +153,38 @@ class OpenPlatformPlugin {
   async updateProxyEnvByCloud() {
 
     await this.openApi.updateProxyEnvByCloud().then(remoteProxyInfo => {
+      const data = {};
 
-      for(const uid of Object.keys(remoteProxyInfo)){
-        const [ip] = remoteProxyInfo[uid].split(":");
+      for(const uid of Object.keys(remoteProxyInfo)) {
+        const [ip, port] = remoteProxyInfo[uid].split(":");
 
-        const data = {};
-        data[ip] = { alphaList: [uid] };
-        this.extendProxyInfo(data);
+        if (data[ip]) {
+          data[ip].remoteAlphaList.push(uid);
+        } else {
+          data[ip] = {
+              remoteAlphaList: [uid],
+              port: Number(port),
+          };
+        }
       }
+      this.updateProxyInfo(data);
     }).catch(e => {
       this.log(`代理名单更新失败: ${e.message}`);
     })
   }
 
-  extendProxyInfo(extendProxyInfo) {
-    for (const ip of Object.keys(extendProxyInfo)){
-      if (this.proxyInfo[ip] && this.proxyInfo[ip].alphaList){
-        const newAlphaList = Array.from(
-          new Set(
-            extendProxyInfo[ip].alphaList.concat(this.proxyInfo[ip].alphaList)
-          )
-        );
+  updateProxyInfo(remoteProxyInfo) {
+    for (const ip of Object.keys(this.proxyInfo)) {
+      if (ip !== this.intranetIp) {
+        delete this.proxyInfo[ip];
+      }
+    }
 
-        this.proxyInfo[ip] = Object.assign(this.proxyInfo[ip], extendProxyInfo[ip]);
-        this.proxyInfo[ip].alphaList = newAlphaList;
-      } else if(this.proxyInfo[ip] && !this.proxyInfo[ip].alphaList) {
-        this.proxyInfo[ip] = Object.assign(this.proxyInfo[ip], extendProxyInfo[ip]);
+    for (const ip of Object.keys(remoteProxyInfo)) {
+      if (this.proxyInfo[ip]) {
+        this.proxyInfo[ip] = Object.assign(this.proxyInfo[ip], remoteProxyInfo[ip]);
       } else {
-        this.proxyInfo[ip] = extendProxyInfo[ip];
+        this.proxyInfo[ip] = remoteProxyInfo[ip];
       }
     }
   }
