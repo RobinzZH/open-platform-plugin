@@ -87,7 +87,10 @@ class OpenPlatformPlugin {
           this.log(`请求结束日志不上报，因为 reportStrategy 为 never`);
           return;
         case "proxied":
-          if (net.isIP(context.proxyIp)) {
+          if (context.proxyIp === "alpha") {
+            this.log(`请求结束日志上报，因为这个请求用户 ${context.uid} 被染色了`);
+            return this.reportLog(req, res, context);
+          } else if (net.isIP(context.proxyIp)) {
             this.log(`请求结束日志上报，因为这个请求被代理到 ${context.proxyIp}`);
             return this.reportLog(req, res, context);
           } else {
