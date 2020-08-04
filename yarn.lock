@@ -2,10 +2,10 @@
 # yarn lockfile v1
 
 
-"@tswjs/open-platform-api@^1.0.2":
-  version "1.1.0"
-  resolved "https://registry.yarnpkg.com/@tswjs/open-platform-api/-/open-platform-api-1.1.0.tgz#09c0645fc80f3f6769cb7430e43ed165aaf17663"
-  integrity sha512-FiBhq0sNvF/WXCgMziaA3uVs7/3+CqiDnN5FHve0DICLH5i8r0j7z2rR9o5NbuLaNaILVC6Yi0RNBUXfkYG61g==
+"@tswjs/open-platform-api@^1.1.1":
+  version "1.1.1"
+  resolved "https://registry.yarnpkg.com/@tswjs/open-platform-api/-/open-platform-api-1.1.1.tgz#af55f3be2fc59ac745888ff68b4e8f2b13623458"
+  integrity sha512-246ulG71KtKgvsEeRBzJjfcS+CAKRxcR9LBl9d8HiUkjMiiQDQMwz5cFgleEvMgM4hos1O2Q+rPKedfOzKHgyA==
   dependencies:
     node-fetch "^2.6.0"
 
