@@ -1,5 +1,4 @@
 const { OpenApi } = require('@tswjs/open-platform-api');
-const moment = require('moment');
 const ip = require("ip");
 const net = require("net");
 
@@ -30,6 +29,33 @@ class OpenPlatformPlugin {
     this.getUid = config.getUid || (() => {});
     // 默认给一个返回 undefined 的同步函数re
     this.getProxyInfo = config.getProxyInfo || (() => {});
+  }
+
+  /**
+   * 计算客户端实际ip
+   */
+  getUserIp(req) {
+    let userIp = req.socket.remoteAddress;
+
+    if (!userIp) {
+      return '';
+    }
+
+    let xff = req.headers['x-forwarded-for'];
+    const realIp = req.headers['x-real-ip'];
+    if (xff) {
+      xff = xff.split(',')[0] || '';
+      userIp = xff.trim() || userIp;
+    } else if (realIp) {
+      userIp = realIp;
+    }
+
+    // ipv4 in ipv6
+    if (userIp.startsWith('::ffff:')) {
+      return userIp.substr(7);
+    }
+
+    return userIp
   }
 
   /**
@@ -71,6 +97,11 @@ class OpenPlatformPlugin {
           break;
         }
       }
+
+      console.debug(`${req.method} ${req.url}`);
+      console.debug(`server ip: ${this.intranetIp}, `
+        + `tcp: ${(req.socket.remoteAddress)}:${(req.socket.remotePort)} `
+        + `> ${(req.socket.localAddress)}:${(req.socket.localPort)}, client ip: ${this.getUserIp(req)}`);
     })
     
     /**
@@ -213,10 +244,7 @@ class OpenPlatformPlugin {
       return headers;
     })();
   
-    const logText = [`${moment().format("YYYY-MM-DD HH:mm:ss.SSS")} ${req.method} ${
-      currentRequest.protocol.toLowerCase()
-    }://${currentRequest.host}${currentRequest.path}`]
-      .concat(context.log.arr)
+    const logText = [].concat(context.log.arr)
       .concat(`\r\nresponse ${currentRequest.resultCode} ${
         JSON.stringify(responseHeaders, null, 4)
       }`);
